@@ -60,14 +60,13 @@ impl Editor {
     }
 
     fn evaluate_event(&mut self, event: &Event) -> Result<()> {
-        if let Event::Key(KeyEvent {
-            code,
-            modifiers,
-            kind,
-            ..
-        }) = event
-        {
-            match code {
+        match event {
+            Event::Key(KeyEvent {
+                code,
+                modifiers,
+                kind: KeyEventKind::Press,
+                ..
+            }) => match code {
                 KeyCode::Char('q') if *modifiers == KeyModifiers::CONTROL => {
                     self.should_quit = true
                 }
@@ -78,19 +77,21 @@ impl Editor {
                 | KeyCode::PageUp
                 | KeyCode::PageDown
                 | KeyCode::Home
-                | KeyCode::End
-                    if *kind == KeyEventKind::Press =>
-                {
-                    self.move_point(code)?
-                }
+                | KeyCode::End => self.move_point(code)?,
                 _ => {}
-            }
+            },
+            Event::Resize(width, height) => self.view.resize(Size {
+                width: *width as usize,
+                height: *height as usize,
+            }),
+            _ => {}
         }
         Ok(())
     }
 
-    fn refresh_screen(&self) -> Result<()> {
+    fn refresh_screen(&mut self) -> Result<()> {
         Terminal::hide_caret()?;
+        Terminal::move_caret_to(Position::default())?;
         if self.should_quit {
             Terminal::clear_screen()?;
             Terminal::print("Goodbye.\r\n")?;
