@@ -1,29 +1,31 @@
+use std::io::Result;
+
 use crossterm::{
     event::{self, Event, KeyCode},
     terminal,
 };
 
 #[derive(Default)]
-pub struct Editor;
+pub struct Editor {}
 
 impl Editor {
     pub fn run(&self) {
-        terminal::enable_raw_mode().unwrap();
+        if let Err(err) = self.repl() {
+            panic!("{err:#?}");
+        }
+        print!("Goodbye.\r\n")
+    }
+
+    fn repl(&self) -> Result<()> {
+        terminal::enable_raw_mode()?;
         loop {
-            match event::read() {
-                Ok(Event::Key(event)) => {
-                    println!("{event:?}\r");
-                    match event.code {
-                        KeyCode::Char('q') => {
-                            break;
-                        }
-                        _ => {}
-                    }
+            if let Event::Key(event) = event::read()? {
+                println!("{event:?}\r");
+                if let KeyCode::Char('q') = event.code {
+                    break;
                 }
-                Err(err) => eprintln!("Error: {err}\r"),
-                _ => {}
             }
         }
-        terminal::disable_raw_mode().unwrap();
+        terminal::disable_raw_mode()
     }
 }
