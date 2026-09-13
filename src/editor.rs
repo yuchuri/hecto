@@ -1,6 +1,6 @@
-use std::io::Result;
+use std::{cmp::min, io::Result};
 
-use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyModifiers};
+use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 
 mod terminal;
 
@@ -12,6 +12,7 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 #[derive(Default)]
 pub struct Editor {
     should_quit: bool,
+    location: Position,
 }
 
 impl Editor {
@@ -34,14 +35,46 @@ impl Editor {
         Ok(())
     }
 
+    fn move_point(&mut self, key_code: &KeyCode) -> Result<()> {
+        let Position { x, y } = &mut self.location;
+        let Size { width, height } = Terminal::size()?;
+        match key_code {
+            KeyCode::Up => *y = y.saturating_sub(1),
+            KeyCode::Down => *y = min(y.saturating_add(1), height.saturating_sub(1)),
+            KeyCode::Left => *x = x.saturating_sub(1),
+            KeyCode::Right => *x = min(x.saturating_add(1), width.saturating_sub(1)),
+            KeyCode::PageUp => *y = 0,
+            KeyCode::PageDown => *y = height.saturating_sub(1),
+            KeyCode::Home => *x = 0,
+            KeyCode::End => *x = width.saturating_sub(1),
+            _ => {}
+        }
+        Ok(())
+    }
+
     fn evaluate_event(&mut self, event: &Event) -> Result<()> {
         if let Event::Key(KeyEvent {
-            code, modifiers, ..
+            code,
+            modifiers,
+            kind,
+            ..
         }) = event
         {
             match code {
                 KeyCode::Char('q') if *modifiers == KeyModifiers::CONTROL => {
-                    self.should_quit = true;
+                    self.should_quit = true
+                }
+                KeyCode::Up
+                | KeyCode::Down
+                | KeyCode::Left
+                | KeyCode::Right
+                | KeyCode::PageUp
+                | KeyCode::PageDown
+                | KeyCode::Home
+                | KeyCode::End
+                    if *kind == KeyEventKind::Press =>
+                {
+                    self.move_point(code)?
                 }
                 _ => {}
             }
@@ -50,15 +83,15 @@ impl Editor {
     }
 
     fn refresh_screen(&self) -> Result<()> {
-        Terminal::hide_cursor()?;
+        Terminal::hide_caret()?;
         if self.should_quit {
             Terminal::clear_screen()?;
             print!("Goodbye.\r\n");
         } else {
             Self::draw_rows()?;
-            Terminal::move_cursor_to(Position { x: 0, y: 0 })?;
+            Terminal::move_caret_to(self.location)?;
         }
-        Terminal::show_cursor()?;
+        Terminal::show_caret()?;
         Terminal::execute()
     }
 
