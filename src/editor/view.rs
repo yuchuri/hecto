@@ -1,4 +1,4 @@
-use std::io::Result;
+use std::{io::Result, path::Path};
 
 use super::terminal::{Position, Size, Terminal};
 
@@ -17,17 +17,39 @@ pub struct View {
 impl View {
     pub fn render(&self) -> Result<()> {
         Terminal::move_caret_to(Position::default())?;
+        if self.buffer.is_empty() {
+            self.render_welcome_screen()?;
+        } else {
+            self.render_buffer()?;
+        }
+        Terminal::execute()
+    }
+
+    fn render_welcome_screen(&self) -> Result<()> {
         let Size { height, .. } = Terminal::size()?;
         for current_row in 0..height {
             Terminal::clear_line()?;
 
-            if let Some(line) = self.buffer.lines.get(current_row) {
-                Terminal::print(line)?;
-            }
             // We allow this since we don't care if our welcome message is put _exactly_ in the middle.
             // It's allowed to be a bit up or down
-            else if current_row == height / 3 {
+            if current_row == height / 3 {
                 Self::draw_welcome_message()?;
+            } else {
+                Self::draw_empty_row()?;
+            }
+            if current_row + 1 < height {
+                Terminal::print("\r\n")?;
+            }
+        }
+        Ok(())
+    }
+
+    fn render_buffer(&self) -> Result<()> {
+        let Size { height, .. } = Terminal::size()?;
+        for current_row in 0..height {
+            Terminal::clear_line()?;
+            if let Some(line) = self.buffer.lines.get(current_row) {
+                Terminal::print(line)?;
             } else {
                 Self::draw_empty_row()?;
             }
@@ -54,5 +76,11 @@ impl View {
 
     fn draw_empty_row() -> Result<()> {
         Terminal::print("~")
+    }
+
+    pub fn load(&mut self, filename: impl AsRef<Path>) {
+        if let Ok(buffer) = Buffer::load(filename) {
+            self.buffer = buffer;
+        }
     }
 }

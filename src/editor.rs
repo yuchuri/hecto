@@ -1,4 +1,4 @@
-use std::{cmp::min, io::Result};
+use std::{cmp::min, env, io::Result};
 
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 
@@ -18,9 +18,16 @@ pub struct Editor {
 impl Editor {
     pub fn run(&mut self) {
         Terminal::initialize().unwrap();
+        self.handle_args();
         let result = self.repl();
         Terminal::terminate().unwrap();
         result.unwrap();
+    }
+
+    fn handle_args(&mut self) {
+        if let Some(filename) = env::args_os().nth(1) {
+            self.view.load(filename);
+        }
     }
 
     fn repl(&mut self) -> Result<()> {
