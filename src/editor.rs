@@ -1,6 +1,7 @@
-use std::io::{self, Read};
-
-use crossterm::terminal;
+use crossterm::{
+    event::{self, Event, KeyCode},
+    terminal,
+};
 
 #[derive(Default)]
 pub struct Editor;
@@ -8,20 +9,19 @@ pub struct Editor;
 impl Editor {
     pub fn run(&self) {
         terminal::enable_raw_mode().unwrap();
-        for b in io::BufReader::new(io::stdin()).bytes() {
-            match b {
-                Ok(b) => {
-                    let c = b as char;
-                    if c.is_control() {
-                        println!("Binary: {0:08b} ASCII: {0:#03} \r", b);
-                    } else {
-                        println!("Binary: {0:08b} ASCII: {0:#03} Character: {1:#?}\r", b, c);
-                    }
-                    if c == 'q' {
-                        break;
+        loop {
+            match event::read() {
+                Ok(Event::Key(event)) => {
+                    println!("{event:?}\r");
+                    match event.code {
+                        KeyCode::Char('q') => {
+                            break;
+                        }
+                        _ => {}
                     }
                 }
                 Err(err) => eprintln!("Error: {err}\r"),
+                _ => {}
             }
         }
         terminal::disable_raw_mode().unwrap();
