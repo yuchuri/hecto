@@ -12,6 +12,7 @@ use view::View;
 pub struct Editor {
     should_quit: bool,
     location: Position,
+    view: View,
 }
 
 impl Editor {
@@ -87,7 +88,7 @@ impl Editor {
             Terminal::clear_screen()?;
             Terminal::print("Goodbye.\r\n")?;
         } else {
-            View::render()?;
+            self.view.render()?;
             Terminal::move_caret_to(self.location)?;
         }
         Terminal::show_caret()?;
