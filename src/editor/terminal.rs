@@ -1,7 +1,7 @@
 use std::io::{self, Result, Write};
 
 use crossterm::{
-    cursor, queue,
+    Command, cursor, queue,
     style::Print,
     terminal::{self, Clear, ClearType},
 };
@@ -34,27 +34,27 @@ impl Terminal {
     }
 
     pub fn clear_screen() -> Result<()> {
-        queue!(io::stdout(), Clear(ClearType::All))
+        Self::queue_command(Clear(ClearType::All))
     }
 
     pub fn clear_line() -> Result<()> {
-        queue!(io::stdout(), Clear(ClearType::CurrentLine))
+        Self::queue_command(Clear(ClearType::CurrentLine))
     }
 
     pub fn move_cursor_to(position: Position) -> Result<()> {
-        queue!(io::stdout(), cursor::MoveTo(position.x, position.y))
+        Self::queue_command(cursor::MoveTo(position.x, position.y))
     }
 
     pub fn hide_cursor() -> Result<()> {
-        queue!(io::stdout(), cursor::Hide)
+        Self::queue_command(cursor::Hide)
     }
 
     pub fn show_cursor() -> Result<()> {
-        queue!(io::stdout(), cursor::Show)
+        Self::queue_command(cursor::Show)
     }
 
-    pub fn print(msg: &str) -> Result<()> {
-        queue!(io::stdout(), Print(msg))
+    pub fn print(string: &str) -> Result<()> {
+        Self::queue_command(Print(string))
     }
 
     pub fn size() -> Result<Size> {
@@ -64,5 +64,9 @@ impl Terminal {
 
     pub fn execute() -> Result<()> {
         io::stdout().flush()
+    }
+
+    fn queue_command(command: impl Command) -> Result<()> {
+        queue!(io::stdout(), command)
     }
 }
