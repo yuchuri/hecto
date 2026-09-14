@@ -1,6 +1,6 @@
-use std::{io::Result, path::Path};
+use std::path::Path;
 
-use super::terminal::{Position, Size, Terminal};
+use super::terminal::{Size, Terminal};
 
 mod buffer;
 
@@ -31,19 +31,18 @@ impl View {
         self.needs_redraw = true;
     }
 
-    fn render_line(at: usize, line: &str) -> Result<()> {
-        Terminal::move_caret_to(Position { x: 0, y: at })?;
-        Terminal::clear_line()?;
-        Terminal::print(line)
+    fn render_line(at: usize, line: &str) {
+        let result = Terminal::print_row(at, line);
+        debug_assert!(result.is_ok(), "Failed to render line");
     }
 
-    pub fn render(&mut self) -> Result<()> {
+    pub fn render(&mut self) {
         if !self.needs_redraw {
-            return Ok(());
+            return;
         }
         let Size { width, height } = self.size;
         if width == 0 || height == 0 {
-            return Ok(());
+            return;
         }
         // We allow this since we don't care if our welcome message is put _exactly_ in the middle.
         // It's allowed to be a bit up or down
@@ -56,15 +55,14 @@ impl View {
                 } else {
                     line
                 };
-                Self::render_line(current_row, truncated_line)?;
+                Self::render_line(current_row, truncated_line);
             } else if current_row == vertical_center && self.buffer.is_empty() {
-                Self::render_line(current_row, &Self::build_welcome_message(width))?;
+                Self::render_line(current_row, &Self::build_welcome_message(width));
             } else {
-                Self::render_line(current_row, "~")?;
+                Self::render_line(current_row, "~");
             }
         }
         self.needs_redraw = false;
-        Ok(())
     }
 
     fn build_welcome_message(width: usize) -> String {

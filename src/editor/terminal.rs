@@ -29,14 +29,24 @@ pub struct Terminal;
 impl Terminal {
     pub fn initialize() -> Result<()> {
         terminal::enable_raw_mode()?;
+        Self::enter_alternate_screen()?;
         Self::clear_screen()?;
-        Self::move_caret_to(Position { x: 0, y: 0 })?;
         Self::execute()
     }
 
     pub fn terminate() -> Result<()> {
+        Self::leave_alternate_screen()?;
+        Self::show_caret()?;
         Self::execute()?;
         terminal::disable_raw_mode()
+    }
+
+    pub fn enter_alternate_screen() -> Result<()> {
+        Self::queue_command(terminal::EnterAlternateScreen)
+    }
+
+    pub fn leave_alternate_screen() -> Result<()> {
+        Self::queue_command(terminal::LeaveAlternateScreen)
     }
 
     pub fn clear_screen() -> Result<()> {
@@ -64,6 +74,12 @@ impl Terminal {
 
     pub fn print(string: &str) -> Result<()> {
         Self::queue_command(Print(string))
+    }
+
+    pub fn print_row(row: usize, line: &str) -> Result<()> {
+        Terminal::move_caret_to(Position { x: 0, y: row })?;
+        Terminal::clear_line()?;
+        Terminal::print(line)
     }
 
     /// Returns the current size of this Terminal.
