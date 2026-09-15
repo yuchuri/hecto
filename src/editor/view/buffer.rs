@@ -1,8 +1,10 @@
 use std::{fs, io::Result, path::Path};
 
+use super::line::Line;
+
 #[derive(Default)]
 pub struct Buffer {
-    pub lines: Vec<String>,
+    pub lines: Vec<Line>,
 }
 
 impl Buffer {
@@ -10,7 +12,7 @@ impl Buffer {
         Ok(Self {
             lines: fs::read_to_string(filename)?
                 .lines()
-                .map(String::from)
+                .map(Line::from)
                 .collect(),
         })
     }
