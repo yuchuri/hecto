@@ -8,10 +8,15 @@ mod view;
 use terminal::{Position, Size, Terminal};
 use view::View;
 
-#[derive(Default)]
+#[derive(Clone, Copy, Default)]
+struct Location {
+    x: usize,
+    y: usize,
+}
+
 pub struct Editor {
     should_quit: bool,
-    location: Position,
+    location: Location,
     view: View,
 }
 
@@ -30,7 +35,7 @@ impl Editor {
         }
         Ok(Self {
             should_quit: false,
-            location: Position::default(),
+            location: Location::default(),
             view,
         })
     }
@@ -53,20 +58,15 @@ impl Editor {
         }
     }
 
-    fn move_point(&mut self, key_code: KeyCode) {
-        let Position { x, y } = &mut self.location;
-        let Size { width, height } = Terminal::size().unwrap_or_default();
-        match key_code {
-            KeyCode::Up => *y = y.saturating_sub(1),
-            KeyCode::Down => *y = min(y.saturating_add(1), height.saturating_sub(1)),
-            KeyCode::Left => *x = x.saturating_sub(1),
-            KeyCode::Right => *x = min(x.saturating_add(1), width.saturating_sub(1)),
-            KeyCode::PageUp => *y = 0,
-            KeyCode::PageDown => *y = height.saturating_sub(1),
-            KeyCode::Home => *x = 0,
-            KeyCode::End => *x = width.saturating_sub(1),
-            _ => {}
-        }
+    fn refresh_screen(&mut self) {
+        let _ = Terminal::hide_caret();
+        self.view.render();
+        let _ = Terminal::move_caret_to(Position {
+            col: self.location.x,
+            row: self.location.y,
+        });
+        let _ = Terminal::show_caret();
+        let _ = Terminal::execute();
     }
 
     fn evaluate_event(&mut self, event: Event) {
@@ -96,12 +96,20 @@ impl Editor {
         }
     }
 
-    fn refresh_screen(&mut self) {
-        let _ = Terminal::hide_caret();
-        self.view.render();
-        let _ = Terminal::move_caret_to(self.location);
-        let _ = Terminal::show_caret();
-        let _ = Terminal::execute();
+    fn move_point(&mut self, key_code: KeyCode) {
+        let Location { x, y } = &mut self.location;
+        let Size { width, height } = Terminal::size().unwrap_or_default();
+        match key_code {
+            KeyCode::Up => *y = y.saturating_sub(1),
+            KeyCode::Down => *y = min(y.saturating_add(1), height.saturating_sub(1)),
+            KeyCode::Left => *x = x.saturating_sub(1),
+            KeyCode::Right => *x = min(x.saturating_add(1), width.saturating_sub(1)),
+            KeyCode::PageUp => *y = 0,
+            KeyCode::PageDown => *y = height.saturating_sub(1),
+            KeyCode::Home => *x = 0,
+            KeyCode::End => *x = width.saturating_sub(1),
+            _ => {}
+        }
     }
 }
 

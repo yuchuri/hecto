@@ -8,8 +8,8 @@ use crossterm::{
 
 #[derive(Clone, Copy, Default)]
 pub struct Position {
-    pub x: usize,
-    pub y: usize,
+    pub col: usize,
+    pub row: usize,
 }
 
 #[derive(Clone, Copy, Default)]
@@ -57,11 +57,22 @@ impl Terminal {
         Self::queue_command(Clear(ClearType::CurrentLine))
     }
 
+    /// Returns the current size of this Terminal.
+    /// Edge Case for systems with `usize` < `u16`:
+    /// * A `Size` representing the terminal size. Any coordinate `z` truncated to `usize` if `usize` < `z` < `u16`
+    pub fn size() -> Result<Size> {
+        let (width, height) = terminal::size()?;
+        Ok(Size {
+            width: width as usize,
+            height: height as usize,
+        })
+    }
+
     /// Moves the caret to the given Position.
     /// # Arguments
-    /// * `Position` - the  `Position`to move the caret to. Will be truncated to `u16::MAX` if bigger.
+    /// * `position` - the `Position` to move the caret to. Will be truncated to `u16::MAX` if bigger.
     pub fn move_caret_to(position: Position) -> Result<()> {
-        Self::queue_command(cursor::MoveTo(position.x as u16, position.y as u16))
+        Self::queue_command(cursor::MoveTo(position.col as u16, position.row as u16))
     }
 
     pub fn hide_caret() -> Result<()> {
@@ -72,25 +83,14 @@ impl Terminal {
         Self::queue_command(cursor::Show)
     }
 
-    pub fn print(string: &str) -> Result<()> {
-        Self::queue_command(Print(string))
-    }
-
     pub fn print_row(row: usize, line: &str) -> Result<()> {
-        Terminal::move_caret_to(Position { x: 0, y: row })?;
+        Terminal::move_caret_to(Position { col: 0, row })?;
         Terminal::clear_line()?;
         Terminal::print(line)
     }
 
-    /// Returns the current size of this Terminal.
-    /// Edge Case for systems with `usize` < `u16`:
-    /// * A `Size` representing the terminal size. Any coordinate `z` truncated to `usize` if `usize` < `z` < `u16`
-    pub fn size() -> Result<Size> {
-        let (width, height) = terminal::size()?;
-        Ok(Size {
-            width: width as usize,
-            height: height as usize,
-        })
+    pub fn print(string: &str) -> Result<()> {
+        Self::queue_command(Print(string))
     }
 
     pub fn execute() -> Result<()> {

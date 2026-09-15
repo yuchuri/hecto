@@ -26,14 +26,16 @@ impl Default for View {
 }
 
 impl View {
+    pub fn load(&mut self, filename: impl AsRef<Path>) {
+        if let Ok(buffer) = Buffer::load(filename) {
+            self.buffer = buffer;
+            self.needs_redraw = true;
+        }
+    }
+
     pub fn resize(&mut self, to: Size) {
         self.size = to;
         self.needs_redraw = true;
-    }
-
-    fn render_line(at: usize, line: &str) {
-        let result = Terminal::print_row(at, line);
-        debug_assert!(result.is_ok(), "Failed to render line");
     }
 
     pub fn render(&mut self) {
@@ -65,6 +67,11 @@ impl View {
         self.needs_redraw = false;
     }
 
+    fn render_line(at: usize, line: &str) {
+        let result = Terminal::print_row(at, line);
+        debug_assert!(result.is_ok(), "Failed to render line");
+    }
+
     fn build_welcome_message(width: usize) -> String {
         if width == 0 {
             return " ".into();
@@ -82,12 +89,5 @@ impl View {
         let mut welcome_message = format!("~{space}{welcome_message}");
         welcome_message.truncate(width);
         welcome_message
-    }
-
-    pub fn load(&mut self, filename: impl AsRef<Path>) {
-        if let Ok(buffer) = Buffer::load(filename) {
-            self.buffer = buffer;
-            self.needs_redraw = true;
-        }
     }
 }
