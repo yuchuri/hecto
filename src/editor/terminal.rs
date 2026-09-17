@@ -1,4 +1,7 @@
-use std::io::{self, Result, Write};
+use std::{
+    fmt::Display,
+    io::{self, Result, Write},
+};
 
 use crossterm::{
     Command, cursor, queue,
@@ -10,6 +13,15 @@ use crossterm::{
 pub struct Position {
     pub col: usize,
     pub row: usize,
+}
+
+impl Position {
+    pub const fn saturating_sub(self, rhs: Self) -> Self {
+        Self {
+            col: self.col.saturating_sub(rhs.col),
+            row: self.row.saturating_sub(rhs.row),
+        }
+    }
 }
 
 #[derive(Clone, Copy, Default)]
@@ -83,14 +95,14 @@ impl Terminal {
         Self::queue_command(cursor::Show)
     }
 
-    pub fn print_row(row: usize, line: &str) -> Result<()> {
+    pub fn print_row(row: usize, line: impl Display) -> Result<()> {
         Terminal::move_caret_to(Position { col: 0, row })?;
         Terminal::clear_line()?;
         Terminal::print(line)
     }
 
-    pub fn print(string: &str) -> Result<()> {
-        Self::queue_command(Print(string))
+    pub fn print(text: impl Display) -> Result<()> {
+        Self::queue_command(Print(text))
     }
 
     pub fn execute() -> Result<()> {

@@ -1,39 +1,171 @@
-use std::ops::Range;
+use std::{
+    env,
+    fmt::Display,
+    ops::{Index, Range},
+    sync::LazyLock,
+};
 
 use unicode_segmentation::UnicodeSegmentation;
+use unicode_width::UnicodeWidthStr;
 
 pub struct Line {
     string: String,
+    offsets: Vec<usize>,
+    widths: Vec<usize>,
 }
 
 impl Line {
-    pub fn get(&self, range: Range<usize>) -> &str {
+    pub fn get_visible_graphemes(&self, range: Range<usize>) -> LineView<'_> {
         if range.start >= range.end {
-            return "";
+            return LineView {
+                line: self,
+                start_index: 0,
+                end_index: 0,
+                pad_left: false,
+                pad_right: false,
+            };
         }
-        let mut start = self.string.len();
-        let mut end = start;
-        for (index, (byte_index, _)) in self.string.grapheme_indices(true).enumerate() {
-            if index == range.start {
-                start = byte_index;
+
+        let mut start_index = self.offsets.len();
+        let mut end_index = 0;
+        let mut pad_left = false;
+        let mut pad_right = false;
+
+        for (index, _) in self.offsets.iter().enumerate() {
+            let current_col = if index == 0 {
+                0
+            } else {
+                self.widths[index - 1]
+            };
+            let next_col = self.widths[index];
+            if current_col < range.start && next_col > range.start {
+                pad_left = true;
             }
-            if index == range.end {
-                end = byte_index;
+            if next_col > range.end {
+                if current_col < range.end {
+                    pad_right = true;
+                }
                 break;
             }
+            if current_col >= range.start {
+                start_index = start_index.min(index);
+                end_index = index + 1;
+            }
         }
-        self.string.get(start..end).unwrap_or_default()
+
+        LineView {
+            line: self,
+            start_index,
+            end_index,
+            pad_left,
+            pad_right,
+        }
     }
 
     pub fn len(&self) -> usize {
-        self.string.graphemes(true).count()
+        self.offsets.len()
+    }
+
+    pub fn width_until(&self, grapheme_index: usize) -> usize {
+        if grapheme_index == 0 {
+            0
+        } else {
+            self.widths
+                .get(grapheme_index - 1)
+                .copied()
+                .unwrap_or(self.width())
+        }
+    }
+
+    pub fn width(&self) -> usize {
+        self.widths.last().copied().unwrap_or_default()
     }
 }
 
 impl From<&str> for Line {
     fn from(line_str: &str) -> Self {
-        Line {
-            string: String::from(line_str),
+        let mut offsets = Vec::with_capacity(line_str.len());
+        let mut widths = Vec::with_capacity(line_str.len());
+
+        let mut total_width = 0;
+        for (byte_index, grapheme) in line_str.grapheme_indices(true) {
+            let width = match grapheme_width(grapheme) {
+                0 => 1,
+                w => w,
+            };
+            total_width += width;
+            offsets.push(byte_index);
+            widths.push(total_width);
         }
+        Self {
+            string: line_str.to_owned(),
+            offsets,
+            widths,
+        }
+    }
+}
+
+impl Index<usize> for Line {
+    type Output = str;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        let start_byte = self.offsets[index];
+        let end_byte = self
+            .offsets
+            .get(index + 1)
+            .copied()
+            .unwrap_or(self.string.len());
+        &self.string[start_byte..end_byte]
+    }
+}
+
+pub struct LineView<'a> {
+    line: &'a Line,
+    start_index: usize,
+    end_index: usize,
+    pad_left: bool,
+    pad_right: bool,
+}
+
+impl Display for LineView<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.pad_left {
+            f.write_str("⋯")?;
+        }
+        for index in self.start_index..self.end_index {
+            let grapheme = &self.line[index];
+            if grapheme_width(grapheme) == 0 {
+                f.write_str("·")?;
+            } else {
+                f.write_str(grapheme)?;
+            }
+        }
+        if self.pad_right {
+            f.write_str("⋯")?;
+        }
+        Ok(())
+    }
+}
+
+static USE_CJK_WIDTH: LazyLock<bool> = LazyLock::new(|| {
+    if let Ok(val) = env::var("HECTO_CJK") {
+        return val == "1" || val.eq_ignore_ascii_case("true");
+    }
+    for var in ["LC_ALL", "LC_CTYPE", "LANG"] {
+        if let Ok(locale) = env::var(var) {
+            let locale = locale.to_ascii_lowercase();
+            if locale.starts_with("zh") || locale.contains("ja") || locale.contains("ko") {
+                return true;
+            }
+        }
+    }
+    false
+});
+
+fn grapheme_width(grapheme: &str) -> usize {
+    if *USE_CJK_WIDTH {
+        grapheme.width_cjk()
+    } else {
+        grapheme.width()
     }
 }
