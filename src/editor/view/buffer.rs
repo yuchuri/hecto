@@ -1,5 +1,6 @@
 use std::{fs, io::Result, path::Path};
 
+use super::Location;
 use super::line::Line;
 
 #[derive(Default)]
@@ -15,6 +16,14 @@ impl Buffer {
                 .map(Line::from)
                 .collect(),
         })
+    }
+
+    pub fn insert(&mut self, at: Location, ch: char) {
+        if let Some(line) = self.lines.get_mut(at.line_index) {
+            line.insert(at.grapheme_index, ch);
+        } else if self.height() == at.line_index {
+            self.lines.push(Line::from(ch.to_string()));
+        }
     }
 
     pub fn is_empty(&self) -> bool {

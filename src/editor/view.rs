@@ -78,6 +78,7 @@ impl View {
     pub fn handle_command(&mut self, command: EditorCommand) {
         match command {
             EditorCommand::Move(direction) => self.move_text_location(&direction),
+            EditorCommand::Insert(ch) => self.insert(ch),
             EditorCommand::Resize(size) => self.resize(size),
             EditorCommand::Quit => (),
         }
@@ -97,7 +98,7 @@ impl View {
             Direction::Home => self.move_to_start_of_line(),
             Direction::End => self.move_to_end_of_line(),
         }
-        self.scroll_location_into_view();
+        self.scroll_text_location_into_view();
     }
 
     fn move_up(&mut self, step: usize) {
@@ -162,13 +163,32 @@ impl View {
         self.text_location.line_index = self.buffer.height().min(self.text_location.line_index);
     }
 
-    fn resize(&mut self, to: Size) {
-        self.size = to;
-        self.scroll_location_into_view();
+    fn insert(&mut self, ch: char) {
+        let old_len = self
+            .buffer
+            .lines
+            .get(self.text_location.line_index)
+            .map_or(0, Line::len);
+        self.buffer.insert(self.text_location, ch);
+        let new_len = self
+            .buffer
+            .lines
+            .get(self.text_location.line_index)
+            .map_or(0, Line::len);
+        if new_len > old_len {
+            self.move_right();
+        }
+        self.scroll_text_location_into_view();
         self.needs_redraw = true;
     }
 
-    fn scroll_location_into_view(&mut self) {
+    fn resize(&mut self, to: Size) {
+        self.size = to;
+        self.scroll_text_location_into_view();
+        self.needs_redraw = true;
+    }
+
+    fn scroll_text_location_into_view(&mut self) {
         let Position { col, row } = self.text_location_to_position();
         let Size { width, height } = self.size;
         let mut offset_changed = false;
@@ -230,5 +250,3 @@ impl View {
         welcome_message
     }
 }
-
-

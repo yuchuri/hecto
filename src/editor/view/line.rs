@@ -1,6 +1,7 @@
 use std::{
     env,
     fmt::{Display, Write},
+    mem,
     ops::{Index, Range},
     sync::LazyLock,
 };
@@ -8,6 +9,7 @@ use std::{
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 
+#[derive(Default)]
 pub struct Line {
     string: String,
     offsets: Vec<usize>,
@@ -62,6 +64,16 @@ impl Line {
         }
     }
 
+    pub fn insert(&mut self, grapheme_index: usize, ch: char) {
+        let byte_index = self
+            .offsets
+            .get(grapheme_index)
+            .copied()
+            .unwrap_or(self.string.len());
+        self.string.insert(byte_index, ch);
+        *self = Line::from(mem::take(&mut self.string));
+    }
+
     pub fn len(&self) -> usize {
         self.offsets.len()
     }
@@ -99,8 +111,8 @@ impl Line {
     }
 }
 
-impl From<&str> for Line {
-    fn from(line_str: &str) -> Self {
+impl From<String> for Line {
+    fn from(line_str: String) -> Self {
         let mut offsets = Vec::with_capacity(line_str.len());
         let mut widths = Vec::with_capacity(line_str.len());
 
@@ -115,10 +127,16 @@ impl From<&str> for Line {
             widths.push(total_width);
         }
         Self {
-            string: line_str.to_owned(),
+            string: line_str,
             offsets,
             widths,
         }
+    }
+}
+
+impl From<&str> for Line {
+    fn from(line_str: &str) -> Self {
+        Self::from(line_str.to_string())
     }
 }
 

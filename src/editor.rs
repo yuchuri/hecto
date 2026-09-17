@@ -61,14 +61,11 @@ impl Editor {
     }
 
     fn evaluate_event(&mut self, event: Event) {
-        match EditorCommand::try_from(event) {
-            Ok(EditorCommand::Quit) => self.should_quit = true,
-            Ok(command) => self.view.handle_command(command),
-            Err(err) => {
-                #[cfg(debug_assertions)]
-                {
-                    panic!("Could not handle command: {err}");
-                }
+        if let Ok(command) = EditorCommand::try_from(event) {
+            if matches!(command, EditorCommand::Quit) {
+                self.should_quit = true;
+            } else {
+                self.view.handle_command(command);
             }
         }
     }
