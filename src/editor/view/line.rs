@@ -1,6 +1,6 @@
 use std::{
     env,
-    fmt::Display,
+    fmt::{Display, Write},
     ops::{Index, Range},
     sync::LazyLock,
 };
@@ -80,6 +80,23 @@ impl Line {
     pub fn width(&self) -> usize {
         self.widths.last().copied().unwrap_or_default()
     }
+
+    fn replacement_character(grapheme: &str) -> Option<char> {
+        let width = grapheme_width(grapheme);
+        match grapheme {
+            " " => None,
+            "\t" => Some(' '),
+            _ if width > 0 && grapheme.trim().is_empty() => Some('␣'),
+            _ if width == 0 => {
+                if grapheme.chars().any(char::is_control) {
+                    Some('▯')
+                } else {
+                    Some('·')
+                }
+            }
+            _ => None,
+        }
+    }
 }
 
 impl From<&str> for Line {
@@ -89,9 +106,9 @@ impl From<&str> for Line {
 
         let mut total_width = 0;
         for (byte_index, grapheme) in line_str.grapheme_indices(true) {
-            let width = match grapheme_width(grapheme) {
-                0 => 1,
-                w => w,
+            let width = match Self::replacement_character(grapheme) {
+                Some(_) => 1,
+                None => grapheme_width(grapheme),
             };
             total_width += width;
             offsets.push(byte_index);
@@ -134,8 +151,8 @@ impl Display for LineView<'_> {
         }
         for index in self.start_index..self.end_index {
             let grapheme = &self.line[index];
-            if grapheme_width(grapheme) == 0 {
-                f.write_str("·")?;
+            if let Some(replacement) = Line::replacement_character(grapheme) {
+                f.write_char(replacement)?;
             } else {
                 f.write_str(grapheme)?;
             }
