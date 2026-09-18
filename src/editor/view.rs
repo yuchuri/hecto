@@ -24,6 +24,7 @@ pub struct View {
     buffer: Buffer,
     needs_redraw: bool,
     size: Size,
+    target_grapheme_index: usize,
     text_location: Location,
     scroll_offset: Position,
 }
@@ -34,6 +35,7 @@ impl Default for View {
             buffer: Buffer::default(),
             needs_redraw: true,
             size: Terminal::size().unwrap_or_default(),
+            target_grapheme_index: 0,
             text_location: Location::default(),
             scroll_offset: Position::default(),
         }
@@ -117,7 +119,8 @@ impl View {
     fn move_left(&mut self) {
         if self.text_location.grapheme_index > 0 {
             self.text_location.grapheme_index -= 1;
-        } else {
+            self.target_grapheme_index = self.text_location.grapheme_index;
+        } else if self.text_location.line_index > 0 {
             self.move_up(1);
             self.move_to_end_of_line();
         }
@@ -131,6 +134,7 @@ impl View {
             .map_or(0, Line::len);
         if self.text_location.grapheme_index < line_width {
             self.text_location.grapheme_index += 1;
+            self.target_grapheme_index = self.text_location.grapheme_index;
         } else {
             self.move_down(1);
             self.move_to_start_of_line();
@@ -139,6 +143,7 @@ impl View {
 
     fn move_to_start_of_line(&mut self) {
         self.text_location.grapheme_index = 0;
+        self.target_grapheme_index = self.text_location.grapheme_index;
     }
 
     fn move_to_end_of_line(&mut self) {
@@ -146,7 +151,8 @@ impl View {
             .buffer
             .lines
             .get(self.text_location.line_index)
-            .map_or(0, Line::len)
+            .map_or(0, Line::len);
+        self.target_grapheme_index = self.text_location.grapheme_index;
     }
 
     // Ensures self.location.grapheme_index points to a valid grapheme index by snapping it to the left most grapheme if appropriate.
@@ -156,7 +162,7 @@ impl View {
             .buffer
             .lines
             .get(self.text_location.line_index)
-            .map_or(0, |line| line.len().min(self.text_location.grapheme_index));
+            .map_or(0, |line| line.len().min(self.target_grapheme_index));
     }
 
     // Ensures self.location.line_index points to a valid line index by snapping it to the bottom most line if appropriate.
@@ -180,6 +186,7 @@ impl View {
         if new_len > old_len {
             self.move_right();
         }
+        self.target_grapheme_index = self.text_location.grapheme_index;
         self.scroll_text_location_into_view();
         self.needs_redraw = true;
     }
