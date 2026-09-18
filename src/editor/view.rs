@@ -80,6 +80,8 @@ impl View {
             EditorCommand::Move(direction) => self.move_text_location(&direction),
             EditorCommand::Insert(ch) => self.insert(ch),
             EditorCommand::Resize(size) => self.resize(size),
+            EditorCommand::Backspace => self.backspace(),
+            EditorCommand::Delete => self.delete(),
             EditorCommand::Quit => (),
         }
     }
@@ -179,6 +181,15 @@ impl View {
             self.move_right();
         }
         self.scroll_text_location_into_view();
+        self.needs_redraw = true;
+    }
+
+    fn backspace(&mut self) {
+        self.move_left();
+        self.delete();
+    }
+    fn delete(&mut self) {
+        self.buffer.remove(self.text_location);
         self.needs_redraw = true;
     }
 

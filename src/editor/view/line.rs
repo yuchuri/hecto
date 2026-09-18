@@ -74,6 +74,18 @@ impl Line {
         *self = Line::from(mem::take(&mut self.string));
     }
 
+    pub fn remove(&mut self, grapheme_index: usize) {
+        if let Some(&start_index) = self.offsets.get(grapheme_index) {
+            let end_index = self
+                .offsets
+                .get(grapheme_index.saturating_add(1))
+                .copied()
+                .unwrap_or(self.string.len());
+            self.string.drain(start_index..end_index);
+            *self = Line::from(mem::take(&mut self.string));
+        }
+    }
+
     pub fn len(&self) -> usize {
         self.offsets.len()
     }
