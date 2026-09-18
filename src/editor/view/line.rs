@@ -86,6 +86,11 @@ impl Line {
         }
     }
 
+    pub fn append(&mut self, other: Line) {
+        self.string.push_str(&other.string);
+        *self = Line::from(mem::take(&mut self.string));
+    }
+
     pub fn len(&self) -> usize {
         self.offsets.len()
     }

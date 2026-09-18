@@ -162,7 +162,7 @@ impl View {
     // Ensures self.location.line_index points to a valid line index by snapping it to the bottom most line if appropriate.
     // Doesn't trigger scrolling.
     fn snap_to_valid_line(&mut self) {
-        self.text_location.line_index = self.buffer.height().min(self.text_location.line_index);
+        self.text_location.line_index = self.buffer.len().min(self.text_location.line_index);
     }
 
     fn insert(&mut self, ch: char) {
@@ -185,11 +185,15 @@ impl View {
     }
 
     fn backspace(&mut self) {
+        if self.text_location.line_index == 0 && self.text_location.grapheme_index == 0 {
+            return;
+        }
         self.move_left();
         self.delete();
     }
     fn delete(&mut self) {
-        self.buffer.remove(self.text_location);
+        self.buffer.delete(self.text_location);
+        self.scroll_text_location_into_view();
         self.needs_redraw = true;
     }
 
