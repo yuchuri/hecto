@@ -84,6 +84,7 @@ impl View {
             EditorCommand::Resize(size) => self.resize(size),
             EditorCommand::Backspace => self.backspace(),
             EditorCommand::Delete => self.delete(),
+            EditorCommand::Enter => self.insert_newline(),
             EditorCommand::Quit => (),
         }
     }
@@ -184,7 +185,7 @@ impl View {
             .get(self.text_location.line_index)
             .map_or(0, Line::len);
         if new_len > old_len {
-            self.move_right();
+            self.move_text_location(&Direction::Right);
         }
         self.target_grapheme_index = self.text_location.grapheme_index;
         self.scroll_text_location_into_view();
@@ -195,12 +196,19 @@ impl View {
         if self.text_location.line_index == 0 && self.text_location.grapheme_index == 0 {
             return;
         }
-        self.move_left();
+        self.move_text_location(&Direction::Left);
         self.delete();
     }
+
     fn delete(&mut self) {
         self.buffer.delete(self.text_location);
         self.scroll_text_location_into_view();
+        self.needs_redraw = true;
+    }
+
+    fn insert_newline(&mut self) {
+        self.buffer.insert_newline(self.text_location);
+        self.move_text_location(&Direction::Right);
         self.needs_redraw = true;
     }
 

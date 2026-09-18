@@ -64,21 +64,17 @@ impl Line {
         }
     }
 
-    pub fn insert(&mut self, grapheme_index: usize, ch: char) {
-        let byte_index = self
-            .offsets
-            .get(grapheme_index)
-            .copied()
-            .unwrap_or(self.string.len());
+    pub fn insert(&mut self, at: usize, ch: char) {
+        let byte_index = self.offsets.get(at).copied().unwrap_or(self.string.len());
         self.string.insert(byte_index, ch);
         *self = Line::from(mem::take(&mut self.string));
     }
 
-    pub fn remove(&mut self, grapheme_index: usize) {
-        if let Some(&start_index) = self.offsets.get(grapheme_index) {
+    pub fn remove(&mut self, at: usize) {
+        if let Some(&start_index) = self.offsets.get(at) {
             let end_index = self
                 .offsets
-                .get(grapheme_index.saturating_add(1))
+                .get(at.saturating_add(1))
                 .copied()
                 .unwrap_or(self.string.len());
             self.string.drain(start_index..end_index);
@@ -91,18 +87,38 @@ impl Line {
         *self = Line::from(mem::take(&mut self.string));
     }
 
+    pub fn split_off(&mut self, at: usize) -> Self {
+        if at > self.len() {
+            return Line::default();
+        }
+
+        let split_byte = self.offsets.get(at).copied().unwrap_or(self.string.len());
+        let split_width = self.width_until(at);
+        let right_string = self.string.split_off(split_byte);
+        let mut right_offsets = self.offsets.split_off(at);
+        let mut right_widths = self.widths.split_off(at);
+
+        for (offset, width) in right_offsets.iter_mut().zip(right_widths.iter_mut()) {
+            *offset -= split_byte;
+            *width -= split_width;
+        }
+
+        Self {
+            string: right_string,
+            offsets: right_offsets,
+            widths: right_widths,
+        }
+    }
+
     pub fn len(&self) -> usize {
         self.offsets.len()
     }
 
-    pub fn width_until(&self, grapheme_index: usize) -> usize {
-        if grapheme_index == 0 {
+    pub fn width_until(&self, at: usize) -> usize {
+        if at == 0 {
             0
         } else {
-            self.widths
-                .get(grapheme_index - 1)
-                .copied()
-                .unwrap_or(self.width())
+            self.widths.get(at - 1).copied().unwrap_or(self.width())
         }
     }
 
