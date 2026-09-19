@@ -50,6 +50,10 @@ impl View {
         }
     }
 
+    pub fn save(&self) {
+        let _ = self.buffer.save();
+    }
+
     pub fn render(&mut self) {
         if !self.needs_redraw {
             return;
@@ -85,6 +89,7 @@ impl View {
             EditorCommand::Backspace => self.backspace(),
             EditorCommand::Delete => self.delete(),
             EditorCommand::Enter => self.insert_newline(),
+            EditorCommand::Save => self.save(),
             EditorCommand::Quit => (),
         }
     }

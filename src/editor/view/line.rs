@@ -187,6 +187,12 @@ impl Index<usize> for Line {
     }
 }
 
+impl Display for Line {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.string)
+    }
+}
+
 pub struct LineView<'a> {
     line: &'a Line,
     start_index: usize,

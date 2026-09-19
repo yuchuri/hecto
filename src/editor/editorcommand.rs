@@ -20,6 +20,7 @@ pub enum EditorCommand {
     Backspace,
     Delete,
     Enter,
+    Save,
     Quit,
 }
 
@@ -35,6 +36,7 @@ impl TryFrom<Event> for EditorCommand {
                 ..
             }) => match (code, modifiers) {
                 (KeyCode::Char('q'), KeyModifiers::CONTROL) => Ok(Self::Quit),
+                (KeyCode::Char('s'), KeyModifiers::CONTROL) => Ok(Self::Save),
                 (KeyCode::Char(ch), KeyModifiers::NONE | KeyModifiers::SHIFT) => {
                     Ok(Self::Insert(ch))
                 }
@@ -47,9 +49,9 @@ impl TryFrom<Event> for EditorCommand {
                 (KeyCode::PageDown, _) => Ok(Self::Move(Direction::PageDown)),
                 (KeyCode::Home, _) => Ok(Self::Move(Direction::Home)),
                 (KeyCode::End, _) => Ok(Self::Move(Direction::End)),
-                (KeyCode::Backspace, _) => Ok(EditorCommand::Backspace),
-                (KeyCode::Delete, _) => Ok(EditorCommand::Delete),
-                (KeyCode::Enter, _) => Ok(EditorCommand::Enter),
+                (KeyCode::Backspace, _) => Ok(Self::Backspace),
+                (KeyCode::Delete, _) => Ok(Self::Delete),
+                (KeyCode::Enter, _) => Ok(Self::Enter),
                 _ => Err(format!("Key code not supported: {code:?}")),
             },
             Event::Resize(width, height) => Ok(Self::Resize(Size {

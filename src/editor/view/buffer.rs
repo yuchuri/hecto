@@ -1,4 +1,8 @@
-use std::{fs, io::Result, path::Path};
+use std::{
+    fs::{self, File},
+    io::{Result, Write},
+    path::{Path, PathBuf},
+};
 
 use super::Location;
 use super::line::Line;
@@ -6,15 +10,18 @@ use super::line::Line;
 #[derive(Default)]
 pub struct Buffer {
     pub lines: Vec<Line>,
+    filename: Option<PathBuf>,
 }
 
 impl Buffer {
     pub fn load(filename: impl AsRef<Path>) -> Result<Self> {
+        let path = filename.as_ref();
         Ok(Self {
-            lines: fs::read_to_string(filename)?
+            lines: fs::read_to_string(path)?
                 .lines()
                 .map(Line::from)
                 .collect(),
+            filename: Some(path.to_path_buf()),
         })
     }
 
@@ -44,6 +51,16 @@ impl Buffer {
             let next_line = self.lines.remove(at.line_index.saturating_add(1));
             self.lines[at.line_index].append(next_line);
         }
+    }
+
+    pub fn save(&self) -> Result<()> {
+        if let Some(filename) = &self.filename {
+            let mut file = File::create(filename)?;
+            for line in &self.lines {
+                writeln!(file, "{line}")?;
+            }
+        }
+        Ok(())
     }
 
     pub fn is_empty(&self) -> bool {
