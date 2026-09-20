@@ -1,6 +1,7 @@
-use std::{fmt::Display, path::Path};
+use std::{ffi::OsStr, fmt::Display, path::Path};
 
 use super::{
+    DocumentStatus,
     editorcommand::{Direction, EditorCommand},
     terminal::{Position, Size, Terminal},
 };
@@ -29,20 +30,22 @@ pub struct View {
     scroll_offset: Position,
 }
 
-impl Default for View {
-    fn default() -> Self {
+impl View {
+    pub fn new(margin_bottom: usize) -> Self {
+        let size = Terminal::size().unwrap_or_default();
         Self {
             buffer: Buffer::default(),
             needs_redraw: true,
-            size: Terminal::size().unwrap_or_default(),
+            size: Size {
+                width: size.width,
+                height: size.height.saturating_sub(margin_bottom),
+            },
             target_grapheme_index: 0,
             text_location: Location::default(),
             scroll_offset: Position::default(),
         }
     }
-}
 
-impl View {
     pub fn load(&mut self, filename: impl AsRef<Path>) {
         if let Ok(buffer) = Buffer::load(filename) {
             self.buffer = buffer;
@@ -50,7 +53,21 @@ impl View {
         }
     }
 
-    pub fn save(&self) {
+    pub fn get_status(&self) -> DocumentStatus {
+        DocumentStatus {
+            total_lines: self.buffer.len(),
+            current_line_index: self.text_location.line_index,
+            is_modified: self.buffer.dirty,
+            filename: self
+                .buffer
+                .path
+                .as_deref()
+                .and_then(Path::file_name)
+                .map(OsStr::to_os_string),
+        }
+    }
+
+    pub fn save(&mut self) {
         let _ = self.buffer.save();
     }
 
@@ -83,7 +100,7 @@ impl View {
 
     pub fn handle_command(&mut self, command: EditorCommand) {
         match command {
-            EditorCommand::Move(direction) => self.move_text_location(&direction),
+            EditorCommand::Move(direction) => self.move_text_location(direction),
             EditorCommand::Insert(ch) => self.insert(ch),
             EditorCommand::Resize(size) => self.resize(size),
             EditorCommand::Backspace => self.backspace(),
@@ -94,7 +111,7 @@ impl View {
         }
     }
 
-    fn move_text_location(&mut self, direction: &Direction) {
+    fn move_text_location(&mut self, direction: Direction) {
         let height = self.size.height;
         // This match moves the positon, but does not check for all boundaries.
         // The final boundarline checking happens after the match statement.
@@ -190,7 +207,7 @@ impl View {
             .get(self.text_location.line_index)
             .map_or(0, Line::len);
         if new_len > old_len {
-            self.move_text_location(&Direction::Right);
+            self.move_text_location(Direction::Right);
         }
         self.target_grapheme_index = self.text_location.grapheme_index;
         self.scroll_text_location_into_view();
@@ -201,7 +218,7 @@ impl View {
         if self.text_location.line_index == 0 && self.text_location.grapheme_index == 0 {
             return;
         }
-        self.move_text_location(&Direction::Left);
+        self.move_text_location(Direction::Left);
         self.delete();
     }
 
@@ -213,7 +230,7 @@ impl View {
 
     fn insert_newline(&mut self) {
         self.buffer.insert_newline(self.text_location);
-        self.move_text_location(&Direction::Right);
+        self.move_text_location(Direction::Right);
         self.needs_redraw = true;
     }
 
