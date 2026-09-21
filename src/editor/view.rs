@@ -1,7 +1,8 @@
-use std::{ffi::OsStr, fmt::Display, path::Path};
+use std::{fmt::Display, path::Path};
 
 use super::{
-    DocumentStatus,
+    NAME, VERSION,
+    documentstatus::DocumentStatus,
     editorcommand::{Direction, EditorCommand},
     terminal::{Position, Size, Terminal},
 };
@@ -11,9 +12,6 @@ mod line;
 
 use buffer::Buffer;
 use line::Line;
-
-const NAME: &str = env!("CARGO_PKG_NAME");
-const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[derive(Clone, Copy, Default)]
 struct Location {
@@ -25,6 +23,7 @@ pub struct View {
     buffer: Buffer,
     needs_redraw: bool,
     size: Size,
+    margin_bottom: usize,
     target_grapheme_index: usize,
     text_location: Location,
     scroll_offset: Position,
@@ -40,6 +39,7 @@ impl View {
                 width: size.width,
                 height: size.height.saturating_sub(margin_bottom),
             },
+            margin_bottom,
             target_grapheme_index: 0,
             text_location: Location::default(),
             scroll_offset: Position::default(),
@@ -58,12 +58,7 @@ impl View {
             total_lines: self.buffer.len(),
             current_line_index: self.text_location.line_index,
             is_modified: self.buffer.dirty,
-            filename: self
-                .buffer
-                .path
-                .as_deref()
-                .and_then(Path::file_name)
-                .map(OsStr::to_os_string),
+            filename: self.buffer.file_info.to_string(),
         }
     }
 
@@ -72,13 +67,11 @@ impl View {
     }
 
     pub fn render(&mut self) {
-        if !self.needs_redraw {
+        if !self.needs_redraw || self.size.height == 0 {
             return;
         }
         let Size { width, height } = self.size;
-        if width == 0 || height == 0 {
-            return;
-        }
+
         // We allow this since we don't care if our welcome message is put _exactly_ in the middle.
         // It's allowed to be a bit up or down
         let vertical_center = height / 3;
@@ -235,7 +228,10 @@ impl View {
     }
 
     fn resize(&mut self, to: Size) {
-        self.size = to;
+        self.size = Size {
+            width: to.width,
+            height: to.height.saturating_sub(self.margin_bottom),
+        };
         self.scroll_text_location_into_view();
         self.needs_redraw = true;
     }
@@ -285,20 +281,17 @@ impl View {
 
     fn build_welcome_message(width: usize) -> String {
         if width == 0 {
-            return " ".into();
+            return String::new();
         }
         let welcome_message = format!("{NAME} editor -- version {VERSION}");
+
         let len = welcome_message.len();
-        if width <= len {
+        let remaining_width = len.saturating_sub(1);
+        // hide the welcome message if it doesn't fit entirely.
+        if remaining_width <= len {
             return "~".into();
         }
 
-        // We allow this since we don't care if our welcome message is put _exactly_ in the middle.
-        // It's allowed to be a bit to the left or right.
-        let padding = width.saturating_sub(len) / 2;
-        let space = " ".repeat(padding.saturating_sub(1));
-        let mut welcome_message = format!("~{space}{welcome_message}");
-        welcome_message.truncate(width);
-        welcome_message
+        format!("{:<1}{welcome_message:^remaining_width$}", "~")
     }
 }

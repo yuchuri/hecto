@@ -1,8 +1,10 @@
 use std::{
     fs::{self, File},
     io::{Result, Write},
-    path::{Path, PathBuf},
+    path::Path,
 };
+
+use crate::editor::fileinfo::FileInfo;
 
 use super::Location;
 use super::line::Line;
@@ -10,7 +12,7 @@ use super::line::Line;
 #[derive(Default)]
 pub struct Buffer {
     pub lines: Vec<Line>,
-    pub path: Option<PathBuf>,
+    pub file_info: FileInfo,
     pub dirty: bool,
 }
 
@@ -19,7 +21,7 @@ impl Buffer {
         let path = filename.as_ref();
         Ok(Self {
             lines: fs::read_to_string(path)?.lines().map(Line::from).collect(),
-            path: Some(path.to_path_buf()),
+            file_info: FileInfo::from(filename),
             dirty: false,
         })
     }
@@ -46,6 +48,10 @@ impl Buffer {
     }
 
     pub fn delete(&mut self, at: Location) {
+        if at.line_index >= self.lines.len() {
+            return;
+        }
+
         if at.grapheme_index < self.lines[at.line_index].len() {
             self.lines[at.line_index].remove(at.grapheme_index);
             self.dirty = true;
@@ -59,7 +65,7 @@ impl Buffer {
     }
 
     pub fn save(&mut self) -> Result<()> {
-        if let Some(filename) = &self.path {
+        if let Some(filename) = &self.file_info.path {
             let mut file = File::create(filename)?;
             for line in &self.lines {
                 writeln!(file, "{line}")?;

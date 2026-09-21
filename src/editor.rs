@@ -1,8 +1,10 @@
-use std::{env, ffi::OsString, io::Result};
+use std::{env, io::Result};
 
 use crossterm::event::{self, Event};
 
+mod documentstatus;
 mod editorcommand;
+mod fileinfo;
 mod statusbar;
 mod terminal;
 mod view;
@@ -12,18 +14,14 @@ use statusbar::StatusBar;
 use terminal::Terminal;
 use view::View;
 
-#[derive(Debug, Default, Eq, PartialEq)]
-pub struct DocumentStatus {
-    total_lines: usize,
-    current_line_index: usize,
-    is_modified: bool,
-    filename: Option<OsString>,
-}
+const NAME: &str = env!("CARGO_PKG_NAME");
+const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub struct Editor {
     should_quit: bool,
     view: View,
     status_bar: StatusBar,
+    title: String,
 }
 
 impl Editor {
@@ -35,17 +33,27 @@ impl Editor {
         }));
 
         Terminal::initialize()?;
-        let mut view = View::new(2);
-        if let Some(filename) = env::args_os().nth(1) {
-            view.load(filename);
-        }
-        let mut statusbar = StatusBar::new(1);
-        statusbar.update_status(view.get_status());
-        Ok(Self {
+        let mut editor = Self {
             should_quit: false,
-            view,
-            status_bar: statusbar,
-        })
+            view: View::new(2),
+            status_bar: StatusBar::new(1),
+            title: String::new(),
+        };
+        if let Some(filename) = env::args_os().nth(1) {
+            editor.view.load(filename);
+        }
+        editor.refresh_status();
+        Ok(editor)
+    }
+
+    pub fn refresh_status(&mut self) {
+        let status = self.view.get_status();
+        let title = format!("{} - {NAME}", status.filename);
+        self.status_bar.update_status(status);
+
+        if title != self.title && matches!(Terminal::set_title(&title), Ok(())) {
+            self.title = title;
+        }
     }
 
     pub fn run(&mut self) {

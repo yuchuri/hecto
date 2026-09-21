@@ -1,9 +1,7 @@
 use std::{
-    env,
     fmt::{Display, Write},
     mem,
     ops::{Index, Range},
-    sync::LazyLock,
 };
 
 use unicode_segmentation::UnicodeSegmentation;
@@ -127,7 +125,7 @@ impl Line {
     }
 
     fn replacement_character(grapheme: &str) -> Option<char> {
-        let width = grapheme_width(grapheme);
+        let width = grapheme.width();
         match grapheme {
             " " => None,
             "\t" => Some(' '),
@@ -153,7 +151,7 @@ impl From<String> for Line {
         for (byte_index, grapheme) in line_str.grapheme_indices(true) {
             let width = match Self::replacement_character(grapheme) {
                 Some(_) => 1,
-                None => grapheme_width(grapheme),
+                None => grapheme.width(),
             };
             total_width += width;
             offsets.push(byte_index);
@@ -218,28 +216,5 @@ impl Display for LineView<'_> {
             f.write_str("⋯")?;
         }
         Ok(())
-    }
-}
-
-static USE_CJK_WIDTH: LazyLock<bool> = LazyLock::new(|| {
-    if let Ok(val) = env::var("HECTO_CJK") {
-        return val == "1" || val.eq_ignore_ascii_case("true");
-    }
-    for var in ["LC_ALL", "LC_CTYPE", "LANG"] {
-        if let Ok(locale) = env::var(var) {
-            let locale = locale.to_ascii_lowercase();
-            if locale.starts_with("zh") || locale.contains("ja") || locale.contains("ko") {
-                return true;
-            }
-        }
-    }
-    false
-});
-
-fn grapheme_width(grapheme: &str) -> usize {
-    if *USE_CJK_WIDTH {
-        grapheme.width_cjk()
-    } else {
-        grapheme.width()
     }
 }
