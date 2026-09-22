@@ -37,7 +37,7 @@ impl View {
     pub fn load(&mut self, filename: impl AsRef<Path>) {
         if let Ok(buffer) = Buffer::load(filename) {
             self.buffer = buffer;
-            self.mark_redraw(true);
+            self.set_need_redraw(true);
         }
     }
 
@@ -166,7 +166,7 @@ impl View {
         }
         self.target_grapheme_index = self.text_location.grapheme_index;
         self.scroll_text_location_into_view();
-        self.mark_redraw(true);
+        self.set_need_redraw(true);
     }
 
     fn backspace(&mut self) {
@@ -180,13 +180,13 @@ impl View {
     fn delete(&mut self) {
         self.buffer.delete(self.text_location);
         self.scroll_text_location_into_view();
-        self.mark_redraw(true);
+        self.set_need_redraw(true);
     }
 
     fn insert_newline(&mut self) {
         self.buffer.insert_newline(self.text_location);
         self.move_text_location(Direction::Right);
-        self.mark_redraw(true);
+        self.set_need_redraw(true);
     }
 
     fn scroll_text_location_into_view(&mut self) {
@@ -212,7 +212,7 @@ impl View {
             offset_changed = true;
         }
         if offset_changed {
-            self.mark_redraw(true);
+            self.set_need_redraw(true);
         }
     }
 
@@ -252,7 +252,7 @@ impl View {
 }
 
 impl UIComponent for View {
-    fn mark_redraw(&mut self, value: bool) {
+    fn set_need_redraw(&mut self, value: bool) {
         self.needs_redraw = value;
     }
 
