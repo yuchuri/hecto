@@ -4,14 +4,15 @@ use unicode_width::UnicodeWidthStr;
 
 use super::{
     NAME, VERSION,
+    command::Move,
     documentstatus::DocumentStatus,
-    editorcommand::{Direction, EditorCommand},
     terminal::{Position, Size, Terminal},
 };
 
 mod buffer;
 mod line;
 
+use crate::editor::command::Edit;
 use crate::editor::uicomponent::UIComponent;
 use buffer::Buffer;
 use line::Line;
@@ -34,11 +35,11 @@ pub struct View {
 }
 
 impl View {
-    pub fn load(&mut self, filename: impl AsRef<Path>) {
-        if let Ok(buffer) = Buffer::load(filename) {
-            self.buffer = buffer;
-            self.set_need_redraw(true);
-        }
+    pub fn load(&mut self, filename: impl AsRef<Path>) -> Result<()> {
+        let buffer = Buffer::load(filename)?;
+        self.buffer = buffer;
+        self.set_need_redraw(true);
+        Ok(())
     }
 
     pub fn get_status(&self) -> DocumentStatus {
@@ -50,35 +51,32 @@ impl View {
         }
     }
 
-    pub fn save(&mut self) {
-        let _ = self.buffer.save();
+    pub fn save(&mut self) -> Result<()> {
+        self.buffer.save()
     }
 
-    pub fn handle_command(&mut self, command: EditorCommand) {
+    pub fn handle_edit_command(&mut self, command: Edit) {
         match command {
-            EditorCommand::Resize(_) | EditorCommand::Quit => {}
-            EditorCommand::Move(direction) => self.move_text_location(direction),
-            EditorCommand::Insert(ch) => self.insert(ch),
-            EditorCommand::Backspace => self.backspace(),
-            EditorCommand::Delete => self.delete(),
-            EditorCommand::Enter => self.insert_newline(),
-            EditorCommand::Save => self.save(),
+            Edit::Insert(c) => self.insert(c),
+            Edit::InsertNewLine => self.insert_newline(),
+            Edit::Delete => self.delete(),
+            Edit::DeleteBackward => self.delete_backward(),
         }
     }
 
-    fn move_text_location(&mut self, direction: Direction) {
+    pub fn handle_move_command(&mut self, command: Move) {
         let height = self.size.height;
         // This match moves the positon, but does not check for all boundaries.
-        // The final boundarline checking happens after the match statement.
-        match direction {
-            Direction::Up => self.move_up(1),
-            Direction::Down => self.move_down(1),
-            Direction::Left => self.move_left(),
-            Direction::Right => self.move_right(),
-            Direction::PageUp => self.move_up(height.saturating_sub(1)),
-            Direction::PageDown => self.move_down(height.saturating_sub(1)),
-            Direction::Home => self.move_to_start_of_line(),
-            Direction::End => self.move_to_end_of_line(),
+        // The final borderline checking happens after the match statement.
+        match command {
+            Move::Up => self.move_up(1),
+            Move::Down => self.move_down(1),
+            Move::Left => self.move_left(),
+            Move::Right => self.move_right(),
+            Move::PageUp => self.move_up(height.saturating_sub(1)),
+            Move::PageDown => self.move_down(height.saturating_sub(1)),
+            Move::Home => self.move_to_start_of_line(),
+            Move::End => self.move_to_end_of_line(),
         }
         self.scroll_text_location_into_view();
     }
@@ -162,18 +160,18 @@ impl View {
             .get(self.text_location.line_index)
             .map_or(0, Line::len);
         if new_len > old_len {
-            self.move_text_location(Direction::Right);
+            self.handle_move_command(Move::Right);
         }
         self.target_grapheme_index = self.text_location.grapheme_index;
         self.scroll_text_location_into_view();
         self.set_need_redraw(true);
     }
 
-    fn backspace(&mut self) {
+    fn delete_backward(&mut self) {
         if self.text_location.line_index == 0 && self.text_location.grapheme_index == 0 {
             return;
         }
-        self.move_text_location(Direction::Left);
+        self.handle_move_command(Move::Left);
         self.delete();
     }
 
@@ -185,7 +183,7 @@ impl View {
 
     fn insert_newline(&mut self) {
         self.buffer.insert_newline(self.text_location);
-        self.move_text_location(Direction::Right);
+        self.handle_move_command(Move::Right);
         self.set_need_redraw(true);
     }
 
@@ -265,7 +263,7 @@ impl UIComponent for View {
         self.scroll_text_location_into_view();
     }
 
-    fn draw(&mut self, origin_y: usize) -> std::io::Result<()> {
+    fn draw(&mut self, origin_y: usize) -> Result<()> {
         let Size { width, height } = self.size;
         let end_y = origin_y.saturating_add(height);
 
