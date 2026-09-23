@@ -4,10 +4,10 @@ use std::{
     path::Path,
 };
 
-use crate::editor::fileinfo::FileInfo;
+use super::fileinfo::FileInfo;
 
 use super::Location;
-use super::line::Line;
+use crate::editor::line::Line;
 
 #[derive(Default)]
 pub struct Buffer {
@@ -64,19 +64,36 @@ impl Buffer {
         }
     }
 
-    pub fn save(&mut self) -> Result<()> {
-        if let Some(filename) = &self.file_info.path {
-            let mut file = File::create(filename)?;
+    fn save_to_file(&self, file_info: &FileInfo) -> Result<()> {
+        if let Some(file_path) = &file_info.get_path() {
+            let mut file = File::create(file_path)?;
             for line in &self.lines {
                 writeln!(file, "{line}")?;
             }
-            self.dirty = false;
         }
+        Ok(())
+    }
+
+    pub fn save_as(&mut self, file_name: &str) -> Result<()> {
+        let file_info = FileInfo::from(file_name);
+        self.save_to_file(&file_info)?;
+        self.file_info = file_info;
+        self.dirty = false;
+        Ok(())
+    }
+
+    pub fn save(&mut self) -> Result<()> {
+        self.save_to_file(&self.file_info)?;
+        self.dirty = false;
         Ok(())
     }
 
     pub fn is_empty(&self) -> bool {
         self.lines.is_empty()
+    }
+
+    pub const fn is_file_loaded(&self) -> bool {
+        self.file_info.has_path()
     }
 
     pub fn len(&self) -> usize {

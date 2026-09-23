@@ -3,19 +3,17 @@ use std::{fmt::Display, io::Result, path::Path};
 use unicode_width::UnicodeWidthStr;
 
 use super::{
-    NAME, VERSION,
-    command::Move,
-    documentstatus::DocumentStatus,
-    terminal::{Position, Size, Terminal},
+    NAME, VERSION, command::Move, documentstatus::DocumentStatus, position::Position, size::Size,
+    terminal::Terminal,
 };
 
 mod buffer;
-mod line;
+mod fileinfo;
 
 use crate::editor::command::Edit;
+use crate::editor::line::Line;
 use crate::editor::uicomponent::UIComponent;
 use buffer::Buffer;
-use line::Line;
 
 #[derive(Clone, Copy, Default)]
 struct Location {
@@ -38,7 +36,7 @@ impl View {
     pub fn load(&mut self, filename: impl AsRef<Path>) -> Result<()> {
         let buffer = Buffer::load(filename)?;
         self.buffer = buffer;
-        self.set_need_redraw(true);
+        self.set_needs_redraw(true);
         Ok(())
     }
 
@@ -51,8 +49,16 @@ impl View {
         }
     }
 
+    pub const fn is_file_loaded(&self) -> bool {
+        self.buffer.is_file_loaded()
+    }
+
     pub fn save(&mut self) -> Result<()> {
         self.buffer.save()
+    }
+
+    pub fn save_as(&mut self, file_name: &str) -> Result<()> {
+        self.buffer.save_as(file_name)
     }
 
     pub fn handle_edit_command(&mut self, command: Edit) {
@@ -164,7 +170,7 @@ impl View {
         }
         self.target_grapheme_index = self.text_location.grapheme_index;
         self.scroll_text_location_into_view();
-        self.set_need_redraw(true);
+        self.set_needs_redraw(true);
     }
 
     fn delete_backward(&mut self) {
@@ -178,13 +184,13 @@ impl View {
     fn delete(&mut self) {
         self.buffer.delete(self.text_location);
         self.scroll_text_location_into_view();
-        self.set_need_redraw(true);
+        self.set_needs_redraw(true);
     }
 
     fn insert_newline(&mut self) {
         self.buffer.insert_newline(self.text_location);
         self.handle_move_command(Move::Right);
-        self.set_need_redraw(true);
+        self.set_needs_redraw(true);
     }
 
     fn scroll_text_location_into_view(&mut self) {
@@ -210,7 +216,7 @@ impl View {
             offset_changed = true;
         }
         if offset_changed {
-            self.set_need_redraw(true);
+            self.set_needs_redraw(true);
         }
     }
 
@@ -250,7 +256,7 @@ impl View {
 }
 
 impl UIComponent for View {
-    fn set_need_redraw(&mut self, value: bool) {
+    fn set_needs_redraw(&mut self, value: bool) {
         self.needs_redraw = value;
     }
 

@@ -80,9 +80,17 @@ impl Line {
         }
     }
 
+    pub fn remove_last(&mut self) {
+        self.remove(self.offsets.len().saturating_sub(1));
+    }
+
     pub fn append(&mut self, other: Line) {
         self.string.push_str(&other.string);
         *self = Line::from(mem::take(&mut self.string));
+    }
+
+    pub fn append_char(&mut self, ch: char) {
+        self.insert(self.len(), ch);
     }
 
     pub fn split_off(&mut self, at: usize) -> Self {

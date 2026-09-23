@@ -1,9 +1,7 @@
 use std::io::Result;
 
 use super::{
-    documentstatus::DocumentStatus,
-    terminal::{Size, Terminal},
-    uicomponent::UIComponent,
+    documentstatus::DocumentStatus, size::Size, terminal::Terminal, uicomponent::UIComponent,
 };
 use unicode_width::UnicodeWidthStr;
 
@@ -18,13 +16,13 @@ impl StatusBar {
     pub fn update_status(&mut self, new_status: DocumentStatus) {
         if new_status != self.current_status {
             self.current_status = new_status;
-            self.set_need_redraw(true);
+            self.set_needs_redraw(true);
         }
     }
 }
 
 impl UIComponent for StatusBar {
-    fn set_need_redraw(&mut self, value: bool) {
+    fn set_needs_redraw(&mut self, value: bool) {
         self.needs_redraw = value;
     }
     fn needs_redraw(&self) -> bool {

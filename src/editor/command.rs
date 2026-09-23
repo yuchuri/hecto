@@ -1,6 +1,6 @@
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
 
-use super::terminal::Size;
+use super::size::Size;
 
 #[derive(Clone, Copy)]
 pub enum Move {
@@ -24,14 +24,14 @@ impl TryFrom<KeyEvent> for Move {
 
         if modifiers == KeyModifiers::NONE {
             match code {
-                KeyCode::Up => Ok(Move::Up),
-                KeyCode::Down => Ok(Move::Down),
-                KeyCode::Left => Ok(Move::Left),
-                KeyCode::Right => Ok(Move::Right),
-                KeyCode::PageUp => Ok(Move::PageUp),
-                KeyCode::PageDown => Ok(Move::PageDown),
-                KeyCode::Home => Ok(Move::Home),
-                KeyCode::End => Ok(Move::End),
+                KeyCode::Up => Ok(Self::Up),
+                KeyCode::Down => Ok(Self::Down),
+                KeyCode::Left => Ok(Self::Left),
+                KeyCode::Right => Ok(Self::Right),
+                KeyCode::PageUp => Ok(Self::PageUp),
+                KeyCode::PageDown => Ok(Self::PageDown),
+                KeyCode::Home => Ok(Self::Home),
+                KeyCode::End => Ok(Self::End),
                 _ => Err(format!("Unsupported code: {code:?}")),
             }
         } else {
@@ -59,11 +59,11 @@ impl TryFrom<KeyEvent> for Edit {
         } = event;
 
         match (code, modifiers) {
-            (KeyCode::Char(c), KeyModifiers::NONE | KeyModifiers::SHIFT) => Ok(Edit::Insert(c)),
-            (KeyCode::Tab, KeyModifiers::NONE) => Ok(Edit::Insert('\t')),
-            (KeyCode::Enter, KeyModifiers::NONE) => Ok(Edit::InsertNewLine),
-            (KeyCode::Backspace, KeyModifiers::NONE) => Ok(Edit::DeleteBackward),
-            (KeyCode::Delete, KeyModifiers::NONE) => Ok(Edit::Delete),
+            (KeyCode::Char(c), KeyModifiers::NONE | KeyModifiers::SHIFT) => Ok(Self::Insert(c)),
+            (KeyCode::Tab, KeyModifiers::NONE) => Ok(Self::Insert('\t')),
+            (KeyCode::Enter, KeyModifiers::NONE) => Ok(Self::InsertNewLine),
+            (KeyCode::Backspace, KeyModifiers::NONE) => Ok(Self::DeleteBackward),
+            (KeyCode::Delete, KeyModifiers::NONE) => Ok(Self::Delete),
             _ => Err(format!(
                 "Unsupported key code: {code:?} or modifiers: {modifiers:?}"
             )),
@@ -76,6 +76,7 @@ pub enum System {
     Save,
     Resize(Size),
     Quit,
+    Dismiss,
 }
 
 impl TryFrom<KeyEvent> for System {
@@ -88,10 +89,12 @@ impl TryFrom<KeyEvent> for System {
 
         if modifiers == KeyModifiers::CONTROL {
             match code {
-                KeyCode::Char('q') => Ok(System::Quit),
-                KeyCode::Char('s') => Ok(System::Save),
+                KeyCode::Char('q') => Ok(Self::Quit),
+                KeyCode::Char('s') => Ok(Self::Save),
                 _ => Err(format!("Unsupported CONTROL+{code:?} combination")),
             }
+        } else if modifiers == KeyModifiers::NONE && matches!(code, KeyCode::Esc) {
+            Ok(Self::Dismiss)
         } else {
             Err(format!(
                 "Unsupported key code: {code:?} or modifiers: {modifiers:?}"

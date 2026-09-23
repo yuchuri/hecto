@@ -1,4 +1,4 @@
-use super::{terminal::Size, uicomponent::UIComponent};
+use super::{size::Size, uicomponent::UIComponent};
 use crate::editor::terminal::Terminal;
 use std::io::Result;
 use std::time::{Duration, Instant};
@@ -45,7 +45,7 @@ impl MessageBar {
 }
 
 impl UIComponent for MessageBar {
-    fn set_need_redraw(&mut self, value: bool) {
+    fn set_needs_redraw(&mut self, value: bool) {
         self.needs_redraw = value;
     }
 

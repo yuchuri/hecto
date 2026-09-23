@@ -9,26 +9,7 @@ use crossterm::{
     terminal,
 };
 
-#[derive(Clone, Copy, Default)]
-pub struct Position {
-    pub col: usize,
-    pub row: usize,
-}
-
-impl Position {
-    pub const fn saturating_sub(self, rhs: Self) -> Self {
-        Self {
-            col: self.col.saturating_sub(rhs.col),
-            row: self.row.saturating_sub(rhs.row),
-        }
-    }
-}
-
-#[derive(Clone, Copy, Default, Eq, PartialEq)]
-pub struct Size {
-    pub width: usize,
-    pub height: usize,
-}
+use super::{position::Position, size::Size};
 
 /// Represents the Terminal.
 /// Edge Case for platforms where `usize` < `u16`:
