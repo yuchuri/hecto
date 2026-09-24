@@ -148,6 +148,13 @@ impl Line {
             _ => None,
         }
     }
+
+    pub fn search(&self, query: &str) -> Option<usize> {
+        let byte_index = self.string.find(query)?;
+        self.offsets
+            .iter()
+            .rposition(|&offset| offset <= byte_index)
+    }
 }
 
 impl From<String> for Line {

@@ -15,6 +15,10 @@ use crate::editor::line::Line;
 use crate::editor::uicomponent::UIComponent;
 use buffer::Buffer;
 
+struct SearchInfo {
+    prev_location: Location,
+}
+
 #[derive(Clone, Copy, Default)]
 struct Location {
     grapheme_index: usize,
@@ -30,6 +34,7 @@ pub struct View {
     target_grapheme_index: usize,
     text_location: Location,
     scroll_offset: Position,
+    search_info: Option<SearchInfo>,
 }
 
 impl View {
@@ -51,6 +56,33 @@ impl View {
 
     pub const fn is_file_loaded(&self) -> bool {
         self.buffer.is_file_loaded()
+    }
+
+    pub fn enter_search(&mut self) {
+        self.search_info = Some(SearchInfo {
+            prev_location: self.text_location,
+        });
+    }
+
+    pub fn exit_search(&mut self) {
+        self.search_info = None;
+    }
+
+    pub fn dismiss_search(&mut self) {
+        if let Some(SearchInfo { prev_location }) = self.search_info.take() {
+            self.text_location = prev_location;
+        }
+        self.scroll_text_location_into_view();
+    }
+
+    pub fn search(&mut self, query: &str) {
+        if query.is_empty() {
+            return;
+        }
+        if let Some(location) = self.buffer.search(query) {
+            self.text_location = location;
+            self.scroll_text_location_into_view();
+        }
     }
 
     pub fn save(&mut self) -> Result<()> {
