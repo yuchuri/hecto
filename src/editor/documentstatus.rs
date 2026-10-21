@@ -1,7 +1,7 @@
 #[derive(Debug, Default, Eq, PartialEq)]
 pub struct DocumentStatus {
     pub total_lines: usize,
-    pub current_line_index: usize,
+    pub current_line_idx: usize,
     pub is_modified: bool,
     pub filename: String,
 }
@@ -20,6 +20,6 @@ impl DocumentStatus {
     }
 
     pub fn position_indicator_to_string(&self) -> String {
-        format!("{}/{}", self.current_line_index, self.total_lines)
+        format!("{}/{}", self.current_line_idx, self.total_lines)
     }
 }

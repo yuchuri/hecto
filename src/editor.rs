@@ -14,9 +14,7 @@ mod terminal;
 mod uicomponent;
 mod view;
 
-use crate::editor::command::Edit;
-use crate::editor::position::Position;
-use command::{Command, System};
+use command::{Command, Edit, Move, System};
 use commandbar::CommandBar;
 use messagebar::MessageBar;
 use size::Size;
@@ -24,6 +22,9 @@ use statusbar::StatusBar;
 use terminal::Terminal;
 use uicomponent::UIComponent;
 use view::View;
+
+pub use line::{ByteIdx, GraphemeIdx, Line};
+pub use position::{Col, Position, Row};
 
 const NAME: &str = env!("CARGO_PKG_NAME");
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -93,10 +94,10 @@ impl Editor {
             }
             match event::read() {
                 Ok(event) => self.evaluate_event(event),
-                Err(err) => {
+                Err(_err) => {
                     #[cfg(debug_assertions)]
                     {
-                        panic!("Could not read event: {err:?}");
+                        panic!("Could not read event: {_err:?}");
                     }
                 }
             }
@@ -259,6 +260,7 @@ impl Editor {
                 let query = self.command_bar.value();
                 self.view.search(&query);
             }
+            Command::Move(Move::Right | Move::Down) => self.view.search_next(),
             _ => {}
         }
     }
@@ -297,7 +299,8 @@ impl Editor {
             PromptType::Save => self.command_bar.set_prompt("Save as: "),
             PromptType::Search => {
                 self.view.enter_search();
-                self.command_bar.set_prompt("Search (Esc to cancel): ");
+                self.command_bar
+                    .set_prompt("Search (Esc to cancel, Arrows to navigate): ")
             }
         }
         self.command_bar.clear_value();

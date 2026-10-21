@@ -21,10 +21,10 @@ pub trait UIComponent {
         if self.needs_redraw() {
             match self.draw(origin_row) {
                 Ok(()) => self.set_needs_redraw(false),
-                Err(err) => {
+                Err(_err) => {
                     #[cfg(debug_assertions)]
                     {
-                        panic!("Could not render this component: {err:?}");
+                        panic!("Could not render this component: {_err:?}");
                     }
                 }
             }
