@@ -1,6 +1,6 @@
 use std::{
     fs::{self, File},
-    io::{Result, Write},
+    io::{self, Write},
     path::Path,
 };
 
@@ -17,7 +17,7 @@ pub struct Buffer {
 }
 
 impl Buffer {
-    pub fn load(filename: impl AsRef<Path>) -> Result<Self> {
+    pub fn load(filename: impl AsRef<Path>) -> io::Result<Self> {
         let path = filename.as_ref();
         Ok(Self {
             lines: fs::read_to_string(path)?.lines().map(Line::from).collect(),
@@ -59,12 +59,12 @@ impl Buffer {
             && at.line_idx.saturating_add(1) < self.len()
         {
             let next_line = self.lines.remove(at.line_idx.saturating_add(1));
-            self.lines[at.line_idx].append(next_line);
+            self.lines[at.line_idx].append(&next_line);
             self.dirty = true;
         }
     }
 
-    pub fn save_as(&mut self, file_name: &str) -> Result<()> {
+    pub fn save_as(&mut self, file_name: &str) -> io::Result<()> {
         let file_info = FileInfo::from(file_name);
         self.save_to_file(&file_info)?;
         self.file_info = file_info;
@@ -72,20 +72,34 @@ impl Buffer {
         Ok(())
     }
 
-    pub fn save(&mut self) -> Result<()> {
+    pub fn save(&mut self) -> io::Result<()> {
         self.save_to_file(&self.file_info)?;
         self.dirty = false;
         Ok(())
     }
 
-    pub fn search(&self, query: &str, from: Location) -> Option<Location> {
-        for (line_idx, line) in self.lines.iter().enumerate().skip(from.line_idx) {
-            let from_grapheme_idx = if line_idx == from.line_idx {
+    pub fn search_forward(&self, query: &str, from: Location) -> Option<Location> {
+        if query.is_empty() {
+            return None;
+        }
+        let mut is_first = true;
+        for (line_idx, line) in self
+            .lines
+            .iter()
+            .enumerate()
+            .cycle()
+            .skip(from.line_idx)
+            .take(self.len().saturating_add(1))
+        // taking one more, to search the current line twice (once from the middle, once from
+        // the start)
+        {
+            let from_grapheme_idx = if is_first {
+                is_first = false;
                 from.grapheme_idx
             } else {
                 0
             };
-            if let Some(grapheme_idx) = line.search(query, from_grapheme_idx) {
+            if let Some(grapheme_idx) = line.search_forward(query, from_grapheme_idx) {
                 return Some(Location {
                     grapheme_idx,
                     line_idx,
@@ -93,8 +107,35 @@ impl Buffer {
             }
         }
 
-        for (line_idx, line) in self.lines.iter().enumerate().take(from.line_idx) {
-            if let Some(grapheme_idx) = line.search(query, 0) {
+        None
+    }
+
+    pub fn search_backward(&self, query: &str, from: Location) -> Option<Location> {
+        if query.is_empty() {
+            return None;
+        }
+        let mut is_first = true;
+        for (line_idx, line) in self
+            .lines
+            .iter()
+            .enumerate()
+            .rev()
+            .cycle()
+            .skip(
+                self.lines
+                    .len()
+                    .saturating_sub(from.line_idx)
+                    .saturating_sub(1),
+            )
+            .take(self.lines.len().saturating_add(1))
+        {
+            let from_grapheme_idx = if is_first {
+                is_first = false;
+                from.grapheme_idx
+            } else {
+                line.len()
+            };
+            if let Some(grapheme_idx) = line.search_backward(query, from_grapheme_idx) {
                 return Some(Location {
                     grapheme_idx,
                     line_idx,
@@ -119,11 +160,16 @@ impl Buffer {
 }
 
 impl Buffer {
-    fn save_to_file(&self, file_info: &FileInfo) -> Result<()> {
+    fn save_to_file(&self, file_info: &FileInfo) -> io::Result<()> {
         if let Some(file_path) = &file_info.get_path() {
             let mut file = File::create(file_path)?;
             for line in &self.lines {
                 writeln!(file, "{line}")?;
+            }
+        } else {
+            #[cfg(debug_assertions)]
+            {
+                panic!("Attempting to save with no file path present");
             }
         }
         Ok(())

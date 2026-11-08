@@ -1,4 +1,4 @@
-use std::io::Result;
+use std::io;
 
 use super::{
     documentstatus::DocumentStatus, size::Size, terminal::Terminal, uicomponent::UIComponent,
@@ -33,7 +33,7 @@ impl UIComponent for StatusBar {
         self.size = size;
     }
 
-    fn draw(&mut self, origin_y: usize) -> Result<()> {
+    fn draw(&mut self, origin_y: usize) -> io::Result<()> {
         //Assemble the first part of the status bar
         let line_count = self.current_status.line_count_to_string();
         let modified_indicator = self.current_status.modified_indicator_to_string();

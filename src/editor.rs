@@ -1,4 +1,4 @@
-use std::{env, io::Result};
+use std::{env, io};
 
 use crossterm::event::{self, Event, KeyEvent, KeyEventKind};
 
@@ -59,7 +59,7 @@ pub struct Editor {
 }
 
 impl Editor {
-    pub fn new() -> Result<Self> {
+    pub fn new() -> io::Result<Self> {
         let current_hook = std::panic::take_hook();
         std::panic::set_hook(Box::new(move |panic_info| {
             let _ = Terminal::terminate();
@@ -74,13 +74,14 @@ impl Editor {
             .message_bar
             .update_message("HELP: Ctrl-F = search | Ctrl-S = save | Ctrl-Q = quit");
 
-        if let Some(path) = env::args_os().nth(1)
-            && editor.view.load(&path).is_err()
-        {
-            editor.message_bar.update_message(&format!(
-                "ERR: Could not open file: {}",
-                path.to_string_lossy()
-            ))
+        if let Some(path) = env::args_os().nth(1) {
+            debug_assert!(!path.is_empty());
+            if editor.view.load(&path).is_err() {
+                editor.message_bar.update_message(&format!(
+                    "ERR: Could not open file: {}",
+                    path.to_string_lossy()
+                ));
+            }
         }
         editor.refresh_status();
         Ok(editor)
@@ -94,10 +95,14 @@ impl Editor {
             }
             match event::read() {
                 Ok(event) => self.evaluate_event(event),
-                Err(_err) => {
+                Err(err) => {
                     #[cfg(debug_assertions)]
                     {
-                        panic!("Could not read event: {_err:?}");
+                        panic!("Could not read event: {err:?}");
+                    }
+                    #[cfg(not(debug_assertions))]
+                    {
+                        let _ = err;
                     }
                 }
             }
@@ -137,6 +142,8 @@ impl Editor {
         } else {
             self.view.caret_position()
         };
+        debug_assert!(new_caret_pos.col <= self.terminal_size.width);
+        debug_assert!(new_caret_pos.row <= self.terminal_size.height);
 
         let _ = Terminal::move_caret_to(new_caret_pos);
         let _ = Terminal::show_caret();
@@ -261,6 +268,7 @@ impl Editor {
                 self.view.search(&query);
             }
             Command::Move(Move::Right | Move::Down) => self.view.search_next(),
+            Command::Move(Move::Left | Move::Up) => self.view.search_prev(),
             _ => {}
         }
     }
@@ -300,7 +308,7 @@ impl Editor {
             PromptType::Search => {
                 self.view.enter_search();
                 self.command_bar
-                    .set_prompt("Search (Esc to cancel, Arrows to navigate): ")
+                    .set_prompt("Search (Esc to cancel, Arrows to navigate): ");
             }
         }
         self.command_bar.clear_value();

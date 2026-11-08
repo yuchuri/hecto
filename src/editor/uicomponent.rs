@@ -1,4 +1,4 @@
-use std::io::Result;
+use std::io;
 
 use super::size::Size;
 
@@ -21,15 +21,19 @@ pub trait UIComponent {
         if self.needs_redraw() {
             match self.draw(origin_row) {
                 Ok(()) => self.set_needs_redraw(false),
-                Err(_err) => {
+                Err(err) => {
                     #[cfg(debug_assertions)]
                     {
-                        panic!("Could not render this component: {_err:?}");
+                        panic!("Could not render this component: {err:?}");
+                    }
+                    #[cfg(not(debug_assertions))]
+                    {
+                        let _ = err;
                     }
                 }
             }
         }
     }
     // Method to actually draw the component, must be implemented by each component
-    fn draw(&mut self, origin_row: usize) -> Result<()>;
+    fn draw(&mut self, origin_row: usize) -> io::Result<()>;
 }

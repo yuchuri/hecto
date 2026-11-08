@@ -1,6 +1,6 @@
 use std::{
     fmt::Display,
-    io::{self, Result, Write},
+    io::{self, Write},
 };
 
 use crossterm::{
@@ -20,7 +20,7 @@ use super::{position::Position, size::Size};
 pub struct Terminal;
 
 impl Terminal {
-    pub fn initialize() -> Result<()> {
+    pub fn initialize() -> io::Result<()> {
         terminal::enable_raw_mode()?;
         Self::enter_alternate_screen()?;
         Self::disable_line_wrap()?;
@@ -28,7 +28,7 @@ impl Terminal {
         Self::execute()
     }
 
-    pub fn terminate() -> Result<()> {
+    pub fn terminate() -> io::Result<()> {
         Self::leave_alternate_screen()?;
         Self::enable_line_wrap()?;
         Self::show_caret()?;
@@ -36,26 +36,26 @@ impl Terminal {
         terminal::disable_raw_mode()
     }
 
-    pub fn enter_alternate_screen() -> Result<()> {
+    pub fn enter_alternate_screen() -> io::Result<()> {
         Self::queue_command(terminal::EnterAlternateScreen)
     }
 
-    pub fn leave_alternate_screen() -> Result<()> {
+    pub fn leave_alternate_screen() -> io::Result<()> {
         Self::queue_command(terminal::LeaveAlternateScreen)
     }
 
-    pub fn clear_screen() -> Result<()> {
+    pub fn clear_screen() -> io::Result<()> {
         Self::queue_command(terminal::Clear(terminal::ClearType::All))
     }
 
-    pub fn clear_line() -> Result<()> {
+    pub fn clear_line() -> io::Result<()> {
         Self::queue_command(terminal::Clear(terminal::ClearType::CurrentLine))
     }
 
     /// Returns the current size of this Terminal.
     /// Edge Case for systems with `usize` < `u16`:
     /// * A `Size` representing the terminal size. Any coordinate `z` truncated to `usize` if `usize` < `z` < `u16`
-    pub fn size() -> Result<Size> {
+    pub fn size() -> io::Result<Size> {
         let (width, height) = terminal::size()?;
         Ok(Size {
             width: width as usize,
@@ -66,41 +66,41 @@ impl Terminal {
     /// Moves the caret to the given Position.
     /// # Arguments
     /// * `position` - the `Position` to move the caret to. Will be truncated to `u16::MAX` if bigger.
-    pub fn move_caret_to(position: Position) -> Result<()> {
+    pub fn move_caret_to(position: Position) -> io::Result<()> {
         Self::queue_command(cursor::MoveTo(position.col as u16, position.row as u16))
     }
 
-    pub fn hide_caret() -> Result<()> {
+    pub fn hide_caret() -> io::Result<()> {
         Self::queue_command(cursor::Hide)
     }
 
-    pub fn show_caret() -> Result<()> {
+    pub fn show_caret() -> io::Result<()> {
         Self::queue_command(cursor::Show)
     }
 
-    pub fn disable_line_wrap() -> Result<()> {
+    pub fn disable_line_wrap() -> io::Result<()> {
         Self::queue_command(terminal::DisableLineWrap)
     }
 
-    pub fn enable_line_wrap() -> Result<()> {
+    pub fn enable_line_wrap() -> io::Result<()> {
         Self::queue_command(terminal::EnableLineWrap)
     }
 
-    pub fn set_title(title: &str) -> Result<()> {
+    pub fn set_title(title: &str) -> io::Result<()> {
         Self::queue_command(terminal::SetTitle(title))
     }
 
-    pub fn print_row(row: usize, line: impl Display) -> Result<()> {
+    pub fn print_row(row: usize, line: impl Display) -> io::Result<()> {
         Terminal::move_caret_to(Position { col: 0, row })?;
         Terminal::clear_line()?;
         Terminal::print(line)
     }
 
-    pub fn print(text: impl Display) -> Result<()> {
+    pub fn print(text: impl Display) -> io::Result<()> {
         Self::queue_command(Print(text))
     }
 
-    pub fn print_inverted_row(row: usize, line: impl Display) -> Result<()> {
+    pub fn print_inverted_row(row: usize, line: impl Display) -> io::Result<()> {
         let width = Self::size()?.width;
         Self::print_row(
             row,
@@ -113,11 +113,11 @@ impl Terminal {
         )
     }
 
-    pub fn execute() -> Result<()> {
+    pub fn execute() -> io::Result<()> {
         io::stdout().flush()
     }
 
-    fn queue_command(command: impl Command) -> Result<()> {
+    fn queue_command(command: impl Command) -> io::Result<()> {
         queue!(io::stdout(), command)
     }
 }

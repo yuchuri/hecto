@@ -1,5 +1,9 @@
-use super::{command::Edit, line::Line, size::Size, terminal::Terminal, uicomponent::UIComponent};
-use std::io::Result;
+use unicode_width::UnicodeWidthStr;
+
+use super::{
+    Col, command::Edit, line::Line, size::Size, terminal::Terminal, uicomponent::UIComponent,
+};
+use std::io;
 
 #[derive(Default)]
 pub struct CommandBar {
@@ -19,10 +23,10 @@ impl CommandBar {
         self.set_needs_redraw(true);
     }
 
-    pub fn caret_position_col(&self) -> usize {
+    pub fn caret_position_col(&self) -> Col {
         self.prompt
-            .len()
-            .saturating_add(self.value.len())
+            .width()
+            .saturating_add(self.value.width())
             .min(self.size.width)
     }
 
@@ -54,21 +58,21 @@ impl UIComponent for CommandBar {
         self.size = size;
     }
 
-    fn draw(&mut self, origin_row: usize) -> Result<()> {
+    fn draw(&mut self, origin_row: usize) -> io::Result<()> {
         // This is how much space there is between the right side of the prompt and the edge of the
         // bar.
-        let area_for_value = self.size.width.saturating_sub(self.prompt.len());
+        let area_for_value = self.size.width.saturating_sub(self.prompt.width());
         // We always want to show the left part of the value, therefore the end of the visible range
         // we try to access will be equal to the full width.
-        let value_end = self.value.len();
-        // This should give us the star for the grapheme subrange we want to print out.
+        let value_end = self.value.width();
+        // This should give us the start for the grapheme subrange we want to print out.
         let value_start = value_end.saturating_sub(area_for_value);
         let message = format!(
             "{}{}",
             self.prompt,
             self.value.get_visible_graphemes(value_start..value_end)
         );
-        let to_print = if message.len() <= self.size.width {
+        let to_print = if message.width() <= self.size.width {
             message
         } else {
             String::new()

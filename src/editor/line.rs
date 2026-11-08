@@ -62,13 +62,19 @@ impl Line {
         }
     }
 
+    // Inserts a character into the line, or appends it at the end if at == self.len() + 1
     pub fn insert(&mut self, at: GraphemeIdx, ch: char) {
-        let byte_idx = self.grapheme_idx_to_byte_idx(at);
-        self.string.insert(byte_idx, ch);
+        debug_assert!(at.saturating_sub(1) <= self.len());
+        if let Some(&byte_idx) = self.offsets.get(at) {
+            self.string.insert(byte_idx, ch);
+        } else {
+            self.string.push(ch);
+        }
         *self = Line::from(mem::take(&mut self.string));
     }
 
     pub fn remove(&mut self, at: GraphemeIdx) {
+        debug_assert!(at <= self.len());
         if let Some(&start_idx) = self.offsets.get(at) {
             let end_idx = self
                 .offsets
@@ -84,7 +90,7 @@ impl Line {
         self.remove(self.offsets.len().saturating_sub(1));
     }
 
-    pub fn append(&mut self, other: Line) {
+    pub fn append(&mut self, other: &Self) {
         self.string.push_str(&other.string);
         *self = Line::from(mem::take(&mut self.string));
     }
@@ -94,7 +100,8 @@ impl Line {
     }
 
     pub fn split_off(&mut self, at: GraphemeIdx) -> Self {
-        if at > self.len() {
+        debug_assert!(at <= self.len());
+        if at >= self.len() {
             return Line::default();
         }
 
@@ -121,6 +128,7 @@ impl Line {
     }
 
     pub fn width_until(&self, at: GraphemeIdx) -> Col {
+        debug_assert!(at <= self.len());
         if at == 0 {
             0
         } else {
@@ -132,12 +140,40 @@ impl Line {
         self.widths.last().copied().unwrap_or_default()
     }
 
-    pub fn search(&self, query: &str, from_grapheme_idx: GraphemeIdx) -> Option<GraphemeIdx> {
+    pub fn search_forward(
+        &self,
+        query: &str,
+        from_grapheme_idx: GraphemeIdx,
+    ) -> Option<GraphemeIdx> {
+        debug_assert!(from_grapheme_idx <= self.len());
+        if from_grapheme_idx >= self.len() {
+            return None;
+        }
         let start_byte_idx = self.grapheme_idx_to_byte_idx(from_grapheme_idx);
         self.string
             .get(start_byte_idx..)
             .and_then(|substr| substr.find(query))
             .map(|byte_idx| self.byte_idx_to_grapheme_idx(byte_idx.saturating_add(start_byte_idx)))
+    }
+
+    pub fn search_backward(
+        &self,
+        query: &str,
+        from_grapheme_idx: GraphemeIdx,
+    ) -> Option<GraphemeIdx> {
+        debug_assert!(from_grapheme_idx <= self.len());
+        if from_grapheme_idx == 0 {
+            return None;
+        }
+        let end_byte_idx = if from_grapheme_idx == self.len() {
+            self.string.len()
+        } else {
+            self.grapheme_idx_to_byte_idx(from_grapheme_idx)
+        };
+        self.string
+            .get(..end_byte_idx)
+            .and_then(|substr| substr.match_indices(query).last())
+            .map(|(byte_idx, _)| self.byte_idx_to_grapheme_idx(byte_idx))
     }
 
     pub fn is_empty(&self) -> bool {
@@ -164,22 +200,46 @@ impl Line {
     }
 
     fn grapheme_idx_to_byte_idx(&self, grapheme_idx: GraphemeIdx) -> ByteIdx {
-        self.offsets
-            .get(grapheme_idx)
-            .copied()
-            .unwrap_or(self.string.len())
+        debug_assert!(grapheme_idx <= self.len());
+        if grapheme_idx == 0 || self.is_empty() {
+            return 0;
+        }
+        self.offsets.get(grapheme_idx).copied().unwrap_or_else(|| {
+            #[cfg(debug_assertions)]
+            {
+                panic!("Fragment not found for grapheme index: {grapheme_idx:?}");
+            }
+            #[cfg(not(debug_assertions))]
+            {
+                0
+            }
+        })
     }
 
     fn byte_idx_to_grapheme_idx(&self, byte_idx: ByteIdx) -> GraphemeIdx {
+        debug_assert!(byte_idx <= self.string.len());
+        if byte_idx == 0 || self.is_empty() {
+            return 0;
+        }
         self.offsets
             .iter()
             .rposition(|&offset| offset <= byte_idx)
-            .unwrap_or(0)
+            .unwrap_or_else(|| {
+                #[cfg(debug_assertions)]
+                {
+                    panic!("Fragment not found for byte index: {byte_idx:?}");
+                }
+                #[cfg(not(debug_assertions))]
+                {
+                    0
+                }
+            })
     }
 }
 
 impl From<String> for Line {
     fn from(line_str: String) -> Self {
+        debug_assert!(line_str.is_empty() || line_str.lines().count() == 1);
         let mut offsets = Vec::with_capacity(line_str.len());
         let mut widths = Vec::with_capacity(line_str.len());
 
